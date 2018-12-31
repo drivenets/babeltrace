@@ -23,6 +23,7 @@
 #include <babeltrace/babeltrace.h>
 #include "pretty/pretty.h"
 #include "dmesg/dmesg.h"
+#include "dnfiles/dnfiles.h"
 
 #ifndef BT_BUILT_IN_PLUGINS
 BT_PLUGIN_MODULE();
@@ -52,3 +53,13 @@ BT_PLUGIN_SOURCE_COMPONENT_CLASS_NOTIFICATION_ITERATOR_INIT_METHOD(dmesg,
 	dmesg_notif_iter_init);
 BT_PLUGIN_SOURCE_COMPONENT_CLASS_NOTIFICATION_ITERATOR_FINALIZE_METHOD(dmesg,
 	dmesg_notif_iter_finalize);
+
+/* pretty sink */
+BT_PLUGIN_SINK_COMPONENT_CLASS(dnfiles, dnfiles_consume);
+BT_PLUGIN_SINK_COMPONENT_CLASS_INIT_METHOD(dnfiles, dnfiles_init);
+BT_PLUGIN_SINK_COMPONENT_CLASS_FINALIZE_METHOD(dnfiles, dnfiles_finalize);
+BT_PLUGIN_SINK_COMPONENT_CLASS_PORT_CONNECTED_METHOD(dnfiles,
+	dnfiles_port_connected);
+BT_PLUGIN_SINK_COMPONENT_CLASS_DESCRIPTION(dnfiles,
+	"Writing DN traces to files.");
+

@@ -763,6 +763,7 @@ AC_CONFIG_FILES([
 	plugins/text/Makefile
 	plugins/text/dmesg/Makefile
 	plugins/text/pretty/Makefile
+	plugins/text/dnfiles/Makefile
 	plugins/utils/Makefile
 	plugins/utils/dummy/Makefile
 	plugins/utils/counter/Makefile

@@ -1,6 +1,6 @@
 AM_CPPFLAGS += -I$(top_srcdir)/plugins
 
-SUBDIRS = pretty dmesg .
+SUBDIRS = pretty dmesg dnfiles .
 
 plugindir = "$(PLUGINSDIR)"
 plugin_LTLIBRARIES = babeltrace-plugin-text.la
@@ -12,6 +12,7 @@ babeltrace_plugin_text_la_LDFLAGS = \
 
 babeltrace_plugin_text_la_LIBADD = \
 	pretty/libbabeltrace-plugin-text-pretty-cc.la \
+	dnfiles/libbabeltrace-plugin-text-dnfiles-cc.la \
 	dmesg/libbabeltrace-plugin-text-dmesg-cc.la
 
 if !ENABLE_BUILT_IN_PLUGINS
