@@ -91,7 +91,7 @@ enum bt_component_status dnfiles_init(
 
 	ret = bt_private_component_sink_add_input_private_port(component,
 		"in", NULL, NULL);
-	if (ret != BT_COMPONENT_STATUS_OK) 
+	if (ret != BT_COMPONENT_STATUS_OK)
 		goto error;
 
 	ret = bt_private_component_set_user_data(component, data);

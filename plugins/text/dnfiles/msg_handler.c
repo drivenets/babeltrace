@@ -93,7 +93,7 @@ static inline enum bt_component_status get_event_field_int(
 
 static void print_info(
 		struct logger *logger,
-		struct bt_field *event,
+		struct bt_event *event,
 		struct bt_field *payload)
 {
 	const char *procname = get_event_field_str(payload, "procname");
@@ -109,9 +109,6 @@ static void print_info(
 	}
 	fprintf(logger->fp, "%s, %s(%ld):%s: ",
 			procname, file, line, func);
-	bt_put(procname);
-	bt_put(file);
-	bt_put(func);
 }
 
 static void print_integer(
@@ -128,19 +125,19 @@ static void print_integer(
 
 	field_type = bt_field_get_type(field);
 	if (!field_type)
-		return;
+		goto end;
 
 	signedness = bt_ctf_field_type_integer_get_signed(field_type);
-	if (signedness < 0) 
-		return;
+	if (signedness < 0)
+		goto end;
 
 	if (!signedness) {
-		if (bt_field_unsigned_integer_get_value(field, &v.u) < 0) 
-			return;
+		if (bt_field_unsigned_integer_get_value(field, &v.u) < 0)
+			goto end;
 
 	} else {
-		if (bt_field_signed_integer_get_value(field, &v.s) < 0) 
-			return;
+		if (bt_field_signed_integer_get_value(field, &v.s) < 0)
+			goto end;
 	}
 
 	encoding = bt_field_type_integer_get_encoding(field_type);
@@ -148,13 +145,17 @@ static void print_integer(
 	case BT_STRING_ENCODING_UTF8:
 	case BT_STRING_ENCODING_ASCII:
 		fprintf(logger->fp, "%c", (int) v.u);
-		return;
+		goto end;
 	case BT_STRING_ENCODING_NONE:
 	case BT_STRING_ENCODING_UNKNOWN:
 		break;
 	default:
-		return;
+		goto end;
+
 	}
+end:
+	bt_put(field_type);
+	return;
 }
 
 static void print_msg(struct logger *logger, struct bt_event *event)
@@ -179,27 +180,27 @@ static void print_msg(struct logger *logger, struct bt_event *event)
 
 	length_field = bt_field_sequence_get_length(field);
 	if (!length_field)
-		goto error;
+		goto error_seq;
 
 	if (bt_field_unsigned_integer_get_value(length_field, &len) < 0)
-		goto error;
+		goto error_length;
 
 	field_type = bt_field_type_sequence_get_element_type(seq_type);
-	if (!field_type) 
-		goto error;
+	if (!field_type)
+		goto error_length;
 
 	if (bt_field_type_get_type_id(field_type) != BT_FIELD_TYPE_ID_INTEGER)
-		goto error;
+		goto error_field;
 
-	if (bt_field_type_integer_get_encoding(field_type) != 
+	if (bt_field_type_integer_get_encoding(field_type) !=
 			BT_STRING_ENCODING_UTF8)
-		goto error;
-	
+		goto error_field;
+
 	if (bt_field_type_integer_get_size(field_type) != CHAR_BIT)
-		goto error;
-	
+		goto error_field;
+
 	if (bt_field_type_get_alignment(field_type) != CHAR_BIT)
-		goto error;
+		goto error_field;
 
 	for (i = 0; i < len; i++)
 		print_integer(
@@ -212,7 +213,17 @@ static void print_msg(struct logger *logger, struct bt_event *event)
 	bt_put(field);
 	return;
 
+error_field:
+	bt_put(field_type);
+
+error_length:
+	bt_put(length_field);
+
+error_seq:
+	bt_put(seq_type);
+
 error:
+	bt_put(field);
 	fprintf(logger->fp, "Failed to retrieve msg\n");
 
 }
@@ -338,7 +349,6 @@ enum bt_component_status handle_notification(
 	print_time(logger, notification, event);
 	print_info(logger, event, payload);
 	print_msg(logger, event);
-	bt_put(procname);
 	bt_put(payload);
 	bt_put(event);
 	return BT_COMPONENT_STATUS_OK;
