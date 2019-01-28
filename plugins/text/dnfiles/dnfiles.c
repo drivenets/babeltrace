@@ -45,7 +45,6 @@ enum bt_component_status dnfiles_consume(struct bt_private_component *component)
 	switch (it_ret) {
 	case BT_NOTIFICATION_ITERATOR_STATUS_END:
 		BT_PUT(data->input_iterator);
-		printf("end !!!\n");
 		ret = BT_COMPONENT_STATUS_END;
 		goto end;
 
@@ -56,7 +55,6 @@ enum bt_component_status dnfiles_consume(struct bt_private_component *component)
 	case BT_NOTIFICATION_ITERATOR_STATUS_OK:
 		break;
 	default:
-		printf("error !!!\n");
 		ret = BT_COMPONENT_STATUS_ERROR;
 		goto end;
 	}
@@ -64,7 +62,6 @@ enum bt_component_status dnfiles_consume(struct bt_private_component *component)
 	notification = bt_notification_iterator_get_notification(it);
 	assert(notification);
 	ret = handle_notification(notification);
-
 end:
 	bt_put(notification);
 	return ret;
@@ -77,7 +74,7 @@ enum bt_component_status dnfiles_init(
 		struct bt_value *params,
 		UNUSED_VAR void *init_method_data)
 {
-	enum bt_component_status ret;
+	enum bt_component_status ret = BT_COMPONENT_STATUS_OK;
 	struct dnfiles_component *data = g_new0(struct dnfiles_component, 1);
 	if (!data)
 	{
