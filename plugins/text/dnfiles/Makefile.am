@@ -1,4 +1,5 @@
 AM_CPPFLAGS += -I$(top_srcdir)/plugins
+AM_LDFLAGS = -lrt
 
 noinst_LTLIBRARIES = libbabeltrace-plugin-text-dnfiles-cc.la
 

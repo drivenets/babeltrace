@@ -5,13 +5,17 @@
 
 #define MAX_LOG_NAME 128
 
+struct logger_config {
+	unsigned int file_size;
+	unsigned int max_files;
+};
+
 struct logger {
 	char name[MAX_LOG_NAME];
 	FILE *fp;
-	bool rotating;
+	struct logger_config *config;
 	unsigned int num_of_files;
-	unsigned int max_files;
-	unsigned int max_file_size;
+	bool rotating;
 	UT_hash_handle hh;
 };
 

@@ -2,19 +2,55 @@
 #include <babeltrace/compat/time-internal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <unistd.h> // for access function
 #include <inttypes.h>
 
 #include "msg_handler.h"
 #define MAX_FILE_SIZE 10 * 1024 * 1024
 #define LOGS_PATH "/var/log/dn/traces/"
 #define MAX_FILE_PATH MAX_LOG_NAME + 22
+#define MAX_CONFIG_NAME MAX_LOG_NAME + 16
 
 
 static struct logger *loggers = NULL;
 static pthread_mutex_t lock;
+
+static struct logger_config *init_logger_config(const char *name)
+{
+	struct logger_config *config = NULL;
+	char filename[MAX_CONFIG_NAME] =  "trace_config_";
+	struct stat st;
+	int fd, size = sizeof(struct logger_config);
+	strcat(filename, name);
+	fd = shm_open(filename, O_CREAT | O_RDWR, S_IWUSR | S_IRUSR);
+	if (fd == -1)
+		goto failed;
+
+	fstat(fd, &st);
+	if ((st.st_size != size) && (ftruncate(fd, size) == -1))
+		goto failed;
+
+	config = (struct logger_config *)mmap(
+		NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+	if (config != MAP_FAILED)
+		goto finished;
+
+failed:
+	config = (struct logger_config *)malloc(size);
+
+finished:
+	config->max_files = 10;
+	config->file_size = MAX_FILE_SIZE;
+	return config;
+}
 
 static inline FILE *open_file(const char *name)
 {
@@ -43,9 +79,8 @@ static struct logger *create_logger(const char *name)
 	struct logger *logger = (struct logger *)malloc(sizeof(struct logger));
 	logger->fp = open_file(name);
 	logger->rotating = false;
-	logger->max_files = 10;
-	logger->max_file_size = MAX_FILE_SIZE;
-	logger->num_of_files = calc_num_of_files(name, logger->max_files);
+	logger->config = init_logger_config(name);
+	logger->num_of_files = calc_num_of_files(name, logger->config->max_files);
 	strcpy(logger->name, name);
 	pthread_mutex_lock(&lock);
 	HASH_ADD_STR(loggers, name, logger);
@@ -96,10 +131,7 @@ static inline enum bt_component_status get_event_field_int(
 }
 
 
-static void print_info(
-		struct logger *logger,
-		struct bt_event *event,
-		struct bt_field *payload)
+static void print_info( struct logger *logger, struct bt_field *payload)
 {
 	const char *procname = get_event_field_str(payload, "procname");
 	const char *file = get_event_field_str(payload, "file");
@@ -413,7 +445,7 @@ static enum bt_component_status handle_event(
 	}
 	print_time(logger, notification, event);
 	print_severity(logger, event_cls);
-	print_info(logger, event, payload);
+	print_info(logger, payload);
 	print_msg(logger, payload);
 	bt_put(event_cls);
 	bt_put(payload);
@@ -498,7 +530,7 @@ void rotate_log(struct logger *logger)
 			strcpy(src, path);
 		sprintf(dst, "%s.%d", path, i + 1);
 
-		if (i >= logger->max_files)
+		if (i >= logger->config->max_files)
 			remove(src);
 
 		else
@@ -506,8 +538,8 @@ void rotate_log(struct logger *logger)
 	}
 
 	logger->num_of_files++;
-	if (logger->num_of_files > logger->max_files)
-		logger->num_of_files = logger->max_files;
+	if (logger->num_of_files > logger->config->max_files)
+		logger->num_of_files = logger->config->max_files;
 	logger->rotating = true;
 }
 
@@ -524,7 +556,7 @@ void rotate_loggers(void)
 			continue;
 
 		fstat(logger->fp->_fileno, &filestats);
-		if (filestats.st_size > logger->max_file_size)
+		if (filestats.st_size > logger->config->file_size)
 			rotate_log(logger);
 	}
 	pthread_mutex_unlock(&lock);
