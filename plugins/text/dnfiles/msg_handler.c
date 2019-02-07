@@ -22,6 +22,23 @@
 static struct logger *loggers = NULL;
 static pthread_mutex_t lock;
 
+static int is_qumran() {
+#define QUMRAN_IDENTIFIER "591"
+    static char str[250] = {0};
+    char *line = str;
+    if (str[0])
+    {
+	return (strstr(str, QUMRAN_IDENTIFIER)? 1 : 0);
+    }
+    FILE *f1 = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
+    if (f1)
+    {
+	fscanf(f1, "%s", line);
+	fclose(f1);
+    }
+    return (strstr(str, QUMRAN_IDENTIFIER)? 1 : 0);
+}
+
 static struct logger_config *init_logger_config(const char *name)
 {
 	struct logger_config *config = NULL;
@@ -48,7 +65,8 @@ failed:
 
 finished:
 	config->max_files = 10;
-	config->file_size = MAX_FILE_SIZE;
+	config->file_size = MAX_FILE_SIZE * (is_qumran()? 1 : 100);
+	printf("MAX_FILES=[%d], MAX_SIZE=[%d] IS_QUMRAN=[%d]\n", config->max_files, config->file_size, is_qumran());
 	return config;
 }
 
