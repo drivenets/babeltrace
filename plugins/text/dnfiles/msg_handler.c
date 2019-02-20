@@ -14,8 +14,6 @@
 
 #include "msg_handler.h"
 #define MAX_FILE_SIZE 10 * 1024 * 1024
-#define LOGS_PATH "/var/log/dn/traces/"
-#define MAX_FILE_PATH MAX_LOG_NAME + 22
 #define MAX_CONFIG_NAME MAX_LOG_NAME + 16
 
 
@@ -66,25 +64,38 @@ failed:
 finished:
 	config->max_files = 10;
 	config->file_size = MAX_FILE_SIZE * (is_qumran()? 1 : 100);
-	printf("MAX_FILES=[%d], MAX_SIZE=[%d] IS_QUMRAN=[%d]\n", config->max_files, config->file_size, is_qumran());
+	printf("MAX_FILES=[%d], MAX_SIZE=[%d] IS_QUMRAN=[%d]\n",
+			config->max_files, config->file_size, is_qumran());
 	return config;
+}
+
+
+static char *create_file_name(char *dst, const char *name)
+{
+	char hostname[MAX_HOSTNAME];
+	gethostname(hostname, MAX_HOSTNAME);
+	snprintf(dst, MAX_FILE_PATH, "%s%s/%s", LOGS_PATH, hostname, name);
+	return dst;
 }
 
 static inline FILE *open_file(const char *name)
 {
-	char path[MAX_FILE_PATH] = LOGS_PATH;
-	return fopen(strcat(path, name), "a+");
+	char path[MAX_FILE_PATH];
+	printf("%s\n", create_file_name(path, name));
+	return fopen(path, "a+");
 }
 
 static unsigned int calc_num_of_files(const char *name, unsigned int max_files)
 {
 	char path[MAX_FILE_PATH];
 	char file[MAX_FILE_PATH];
+	char zfile[MAX_FILE_PATH];
 	unsigned int num_of_files = 1;
-	strcpy(path, LOGS_PATH);
-	strcat(path, name);
+	create_file_name(path, name);
 	sprintf(file, "%s.%d", path, num_of_files);
-	while ((access(file, F_OK) != -1) & (num_of_files < max_files))
+	sprintf(zfile, "%s.%d.gz", path, num_of_files);
+	while (((access(file, F_OK) != -1) || (access(file, F_OK) != -1 )) &&
+		(num_of_files < max_files))
 	{
 		num_of_files++;
 		sprintf(file, "%s.%d", path, num_of_files);
@@ -533,26 +544,40 @@ void rotate_log(struct logger *logger)
 {
 	int i;
 	char path[MAX_FILE_PATH];
-	strcpy(path, LOGS_PATH);
-	strcat(path, logger->name);
+	create_file_name(path, logger->name);
 
 	for (i=logger->num_of_files; i>=0; i--)
 	{
 		char src[MAX_FILE_PATH];
 		char dst[MAX_FILE_PATH];
+		char gsrc[MAX_FILE_PATH];
+		char gdst[MAX_FILE_PATH];
 
 		if (i > 0)
+		{
 			sprintf(src, "%s.%d", path, i);
+			sprintf(gsrc, "%s.%d.gz", path, i);
+		}
 
 		else
+		{
 			strcpy(src, path);
+			sprintf(gsrc, "%s.gz", path);
+		}
 		sprintf(dst, "%s.%d", path, i + 1);
+		sprintf(gdst, "%s.%d.gz", path, i + 1);
 
 		if (i >= logger->config->max_files)
+		{
 			remove(src);
+			remove(gsrc);
+		}
 
 		else
+		{
 			rename(src, dst);
+			rename(gsrc, gdst);
+		}
 	}
 
 	logger->num_of_files++;

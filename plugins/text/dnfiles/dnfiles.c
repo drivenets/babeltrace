@@ -3,6 +3,10 @@
 #include <plugins-common.h>
 #include <pthread.h>
 #include <assert.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 #include "msg_handler.h"
 #include "dnfiles.h"
@@ -74,6 +78,8 @@ enum bt_component_status dnfiles_init(
 		struct bt_value *params,
 		UNUSED_VAR void *init_method_data)
 {
+	char path[MAX_FILE_PATH] = LOGS_PATH;
+	char hostname[MAX_HOSTNAME];
 	enum bt_component_status ret = BT_COMPONENT_STATUS_OK;
 	struct dnfiles_component *data = g_new0(struct dnfiles_component, 1);
 	if (!data)
@@ -81,6 +87,11 @@ enum bt_component_status dnfiles_init(
 		ret = BT_COMPONENT_STATUS_NOMEM;
 		goto error;
 	}
+
+	gethostname(hostname, MAX_HOSTNAME);
+	strcat(path, hostname);
+	printf("Creating path %s\n", path);
+	mkdir(path, 0700);
 
 	// TODO init strings if needed
 	if (pthread_create(&service_thread, NULL, service_func, NULL) != 0)
