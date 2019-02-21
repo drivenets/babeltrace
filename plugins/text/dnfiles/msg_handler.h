@@ -3,7 +3,10 @@
 #include <babeltrace/babeltrace.h>
 #include "uthash.h"
 
+#define MAX_HOSTNAME 128
 #define MAX_LOG_NAME 128
+#define MAX_FILE_PATH MAX_LOG_NAME + 128
+#define LOGS_PATH "/var/log/dn/traces/"
 
 struct logger_config {
 	unsigned int file_size;
