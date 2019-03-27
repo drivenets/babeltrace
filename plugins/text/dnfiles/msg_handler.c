@@ -540,67 +540,15 @@ void close_all_loggers(void)
 	pthread_mutex_unlock(&lock);
 }
 
-void rotate_log(struct logger *logger)
-{
-	int i;
-	char path[MAX_FILE_PATH];
-	create_file_name(path, logger->name);
-
-	for (i=logger->num_of_files; i>=0; i--)
-	{
-		char src[MAX_FILE_PATH];
-		char dst[MAX_FILE_PATH];
-		char gsrc[MAX_FILE_PATH];
-		char gdst[MAX_FILE_PATH];
-
-		if (i > 0)
-		{
-			sprintf(src, "%s.%d", path, i);
-			sprintf(gsrc, "%s.%d.gz", path, i);
-		}
-
-		else
-		{
-			strcpy(src, path);
-			sprintf(gsrc, "%s.gz", path);
-		}
-		sprintf(dst, "%s.%d", path, i + 1);
-		sprintf(gdst, "%s.%d.gz", path, i + 1);
-
-		if (i >= logger->config->max_files)
-		{
-			remove(src);
-			remove(gsrc);
-		}
-
-		else
-		{
-			rename(src, dst);
-			rename(gsrc, gdst);
-		}
-	}
-
-	logger->num_of_files++;
-	if (logger->num_of_files > logger->config->max_files)
-		logger->num_of_files = logger->config->max_files;
-	logger->rotating = true;
-}
 
 void rotate_loggers(void)
 {
 	struct logger *logger, *tmp;
+	printf("Rotating\n");
+	flush_all_loggers();
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		struct stat filestats;
-		if (logger->rotating == true)
-			continue;
-
-		if (logger->fp == NULL)
-			continue;
-
-		fstat(logger->fp->_fileno, &filestats);
-		if (filestats.st_size > logger->config->file_size)
-			rotate_log(logger);
+		logger->rotating = true;
 	}
 	pthread_mutex_unlock(&lock);
 }

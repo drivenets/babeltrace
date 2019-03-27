@@ -22,10 +22,15 @@ static void *service_func(void *arg)
 	{
 		g_usleep(1000000);
 		flush_all_loggers();
-		rotate_loggers();
 	}
 	return NULL;
 }
+
+static void handle_rotation(int signo)
+{
+	rotate_loggers();
+}
+
 
 BT_HIDDEN
 enum bt_component_status dnfiles_consume(struct bt_private_component *component)
@@ -95,7 +100,10 @@ enum bt_component_status dnfiles_init(
 
 	// TODO init strings if needed
 	if (pthread_create(&service_thread, NULL, service_func, NULL) != 0)
+	{
+		ret = BT_COMPONENT_STATUS_ERROR;
 		goto error;
+	}
 
 	ret = bt_private_component_sink_add_input_private_port(component,
 		"in", NULL, NULL);
@@ -106,10 +114,15 @@ enum bt_component_status dnfiles_init(
 	if (ret != BT_COMPONENT_STATUS_OK)
 		goto error;
 
+	if (signal(SIGUSR1, handle_rotation) == SIG_ERR)
+	{
+		ret = BT_COMPONENT_STATUS_ERROR;
+		goto error;
+	}
 	ret = init_handler();
 	if (ret == BT_COMPONENT_STATUS_OK)
 		goto end;
-
+	
 error:
 	g_free(data);
 end:
