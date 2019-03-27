@@ -8,16 +8,9 @@
 #define MAX_FILE_PATH MAX_LOG_NAME + 128
 #define LOGS_PATH "/var/log/dn/traces/"
 
-struct logger_config {
-	unsigned int file_size;
-	unsigned int max_files;
-};
-
 struct logger {
 	char name[MAX_LOG_NAME];
 	FILE *fp;
-	struct logger_config *config;
-	unsigned int num_of_files;
 	bool rotating;
 	UT_hash_handle hh;
 };

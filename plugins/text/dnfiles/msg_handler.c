@@ -20,96 +20,23 @@
 static struct logger *loggers = NULL;
 static pthread_mutex_t lock;
 
-static int is_qumran() {
-#define QUMRAN_IDENTIFIER "591"
-    static char str[250] = {0};
-    char *line = str;
-    if (str[0])
-    {
-	return (strstr(str, QUMRAN_IDENTIFIER)? 1 : 0);
-    }
-    FILE *f1 = fopen("/sys/devices/virtual/dmi/id/product_name", "r");
-    if (f1)
-    {
-	fscanf(f1, "%s", line);
-	fclose(f1);
-    }
-    return (strstr(str, QUMRAN_IDENTIFIER)? 1 : 0);
-}
-
-static struct logger_config *init_logger_config(const char *name)
-{
-	struct logger_config *config = NULL;
-	char filename[MAX_CONFIG_NAME] =  "trace_config_";
-	struct stat st;
-	int fd, size = sizeof(struct logger_config);
-	strcat(filename, name);
-	fd = shm_open(filename, O_CREAT | O_RDWR, S_IWUSR | S_IRUSR);
-	if (fd == -1)
-		goto failed;
-
-	fstat(fd, &st);
-	if ((st.st_size != size) && (ftruncate(fd, size) == -1))
-		goto failed;
-
-	config = (struct logger_config *)mmap(
-		NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-	if (config != MAP_FAILED)
-		goto finished;
-
-failed:
-	config = (struct logger_config *)malloc(size);
-
-finished:
-	config->max_files = 10;
-	config->file_size = MAX_FILE_SIZE * (is_qumran()? 1 : 100);
-	printf("MAX_FILES=[%d], MAX_SIZE=[%d] IS_QUMRAN=[%d]\n",
-			config->max_files, config->file_size, is_qumran());
-	return config;
-}
-
-
-static char *create_file_name(char *dst, const char *name)
-{
-	char hostname[MAX_HOSTNAME];
-	gethostname(hostname, MAX_HOSTNAME);
-	snprintf(dst, MAX_FILE_PATH, "%s%s/%s", LOGS_PATH, hostname, name);
-	return dst;
-}
 
 static inline FILE *open_file(const char *name)
 {
 	char path[MAX_FILE_PATH];
-	printf("%s\n", create_file_name(path, name));
+	char hostname[MAX_HOSTNAME];
+	gethostname(hostname, MAX_HOSTNAME);
+	snprintf(path, MAX_FILE_PATH, "%s%s/%s", LOGS_PATH, hostname, name);
+	printf("%s\n", path);
 	return fopen(path, "a+");
 }
 
-static unsigned int calc_num_of_files(const char *name, unsigned int max_files)
-{
-	char path[MAX_FILE_PATH];
-	char file[MAX_FILE_PATH];
-	char zfile[MAX_FILE_PATH];
-	unsigned int num_of_files = 1;
-	create_file_name(path, name);
-	sprintf(file, "%s.%d", path, num_of_files);
-	sprintf(zfile, "%s.%d.gz", path, num_of_files);
-	while (((access(file, F_OK) != -1) || (access(file, F_OK) != -1 )) &&
-		(num_of_files < max_files))
-	{
-		num_of_files++;
-		sprintf(file, "%s.%d", path, num_of_files);
-	}
-	return num_of_files;
-}
 
 static struct logger *create_logger(const char *name)
 {
 	struct logger *logger = (struct logger *)malloc(sizeof(struct logger));
 	logger->fp = open_file(name);
 	logger->rotating = false;
-	logger->config = init_logger_config(name);
-	logger->num_of_files = calc_num_of_files(name, logger->config->max_files);
 	strcpy(logger->name, name);
 	pthread_mutex_lock(&lock);
 	HASH_ADD_STR(loggers, name, logger);
@@ -117,7 +44,8 @@ static struct logger *create_logger(const char *name)
 	return logger;
 }
 
-static const char *get_event_field_str(struct bt_field *payload, const char *name)
+static const char *get_event_field_str(
+		struct bt_field *payload, const char *name)
 {
 	struct bt_field *field = NULL;
 	const char *res = NULL;
