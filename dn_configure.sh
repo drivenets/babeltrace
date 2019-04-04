@@ -1,1 +1,1 @@
-./configure  --disable-debug-info --disable-man-pages
+./configure  --disable-debug-info --disable-man-pages CFLAGS='-ggdb -O0'
