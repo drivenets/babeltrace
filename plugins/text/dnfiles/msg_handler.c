@@ -455,8 +455,11 @@ static enum bt_component_status handle_event(
 	struct bt_event_class *event_cls = bt_event_get_class(event);
 	const char *procname = get_event_field_str(payload, "procname");
 	struct logger *logger;
+	if (!event)
+		goto end_handle;
+
 	if (!procname || strlen(procname) > MAX_LOG_NAME)
-		return BT_COMPONENT_STATUS_OK;
+		goto end_handle;
 
 
 	HASH_FIND_STR(loggers, procname, logger);
@@ -464,7 +467,7 @@ static enum bt_component_status handle_event(
 		logger = create_logger(procname);
 
 	if (!logger || !logger->fp)
-		return BT_COMPONENT_STATUS_OK;
+		goto end_handle;
 
 	if (logger->rotating)
 	{
@@ -476,6 +479,8 @@ static enum bt_component_status handle_event(
 	print_severity(logger, event_cls);
 	print_info(logger, payload);
 	print_msg(logger, payload);
+
+end_handle:
 	bt_put(event_cls);
 	bt_put(payload);
 	bt_put(event);
