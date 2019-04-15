@@ -466,7 +466,10 @@ void close_all_loggers(void)
 	struct logger *logger, *tmp;
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		fclose(logger->fp);
+		if (logger->fp)
+		{
+			fclose(logger->fp);
+		}
 		HASH_DEL(loggers, logger);
 		free(logger);
 	}
