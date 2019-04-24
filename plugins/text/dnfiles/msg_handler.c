@@ -20,7 +20,6 @@
 static struct logger *loggers = NULL;
 static pthread_mutex_t lock;
 
-
 static inline FILE *open_file(const char *name)
 {
 	char path[MAX_FILE_PATH];
@@ -36,7 +35,6 @@ static struct logger *create_logger(const char *name)
 {
 	struct logger *logger = (struct logger *)malloc(sizeof(struct logger));
 	logger->fp = open_file(name);
-	logger->rotating = false;
 	strcpy(logger->name, name);
 	pthread_mutex_lock(&lock);
 	HASH_ADD_STR(loggers, name, logger);
@@ -397,12 +395,6 @@ static enum bt_component_status handle_event(
 	if (!logger || !logger->fp)
 		goto end_handle;
 
-	if (logger->rotating)
-	{
-		fclose(logger->fp);
-		logger->fp = open_file(logger->name);
-		logger->rotating = false;
-	}
 	print_time(logger, notification, event);
 	print_severity(logger, event_cls);
 	print_info(logger, payload);
@@ -481,10 +473,14 @@ void rotate_loggers(void)
 {
 	struct logger *logger, *tmp;
 	printf("Rotating\n");
-	flush_all_loggers();
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		logger->rotating = true;
+		if (logger->fp)
+		{
+			fclose(logger->fp);
+		}
+		logger->fp = open_file(logger->name);
 	}
 	pthread_mutex_unlock(&lock);
+	printf("finished rotating\n");
 }

@@ -11,7 +11,6 @@
 struct logger {
 	char name[MAX_LOG_NAME];
 	FILE *fp;
-	bool rotating;
 	UT_hash_handle hh;
 };
 

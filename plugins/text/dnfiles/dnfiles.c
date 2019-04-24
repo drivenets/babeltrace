@@ -15,6 +15,7 @@
 
 pthread_t service_thread;
 bool running = true;
+bool should_rotate = false;
 
 static void *service_func(void *arg)
 {
@@ -22,13 +23,18 @@ static void *service_func(void *arg)
 	{
 		g_usleep(1000000);
 		flush_all_loggers();
+		if (should_rotate)
+		{
+			rotate_loggers();
+			should_rotate = false;
+		}
 	}
 	return NULL;
 }
 
 static void handle_rotation(int signo)
 {
-	rotate_loggers();
+	should_rotate = true;
 }
 
 
