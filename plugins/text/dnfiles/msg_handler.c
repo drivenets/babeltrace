@@ -19,6 +19,7 @@
 
 static struct logger *loggers = NULL;
 static pthread_mutex_t lock;
+extern int keepalive_timer;
 
 static inline FILE *open_file(const char *name)
 {
@@ -34,11 +35,19 @@ static inline FILE *open_file(const char *name)
 static struct logger *create_logger(const char *name)
 {
 	struct logger *logger = (struct logger *)malloc(sizeof(struct logger));
-	logger->fp = open_file(name);
-	strcpy(logger->name, name);
 	pthread_mutex_lock(&lock);
+	strcpy(logger->name, name);
 	HASH_ADD_STR(loggers, name, logger);
 	pthread_mutex_unlock(&lock);
+	if (strcmp(name, "babeltrace") == 0)
+	{
+		logger->is_dummy = true;
+	}
+	else
+	{
+		logger->is_dummy = false;
+		logger->fp = open_file(name);
+	}
 	return logger;
 }
 
@@ -395,6 +404,12 @@ static enum bt_component_status handle_event(
 	if (!logger || !logger->fp)
 		goto end_handle;
 
+	if (logger->is_dummy)
+	{
+		keepalive_timer = 0;
+		return BT_COMPONENT_STATUS_OK;
+	}
+
 	print_time(logger, notification, event);
 	print_severity(logger, event_cls);
 	print_info(logger, payload);
@@ -448,7 +463,8 @@ void flush_all_loggers(void)
 	struct logger *logger, *tmp;
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		fflush(logger->fp);
+		if (!logger->is_dummy && logger->fp)
+			fflush(logger->fp);
 	}
 	pthread_mutex_unlock(&lock);
 }
@@ -458,12 +474,15 @@ void close_all_loggers(void)
 	struct logger *logger, *tmp;
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		if (logger->fp)
+		if (!logger->is_dummy)
 		{
-			fclose(logger->fp);
+			if (logger->fp)
+			{
+				fclose(logger->fp);
+			}
+			HASH_DEL(loggers, logger);
+			free(logger);
 		}
-		HASH_DEL(loggers, logger);
-		free(logger);
 	}
 	pthread_mutex_unlock(&lock);
 }
@@ -475,11 +494,14 @@ void rotate_loggers(void)
 	printf("Rotating\n");
 	pthread_mutex_lock(&lock);
 	HASH_ITER(hh, loggers, logger, tmp) {
-		if (logger->fp)
+		if (!logger->is_dummy)
 		{
-			fclose(logger->fp);
+			if (logger->fp)
+			{
+				fclose(logger->fp);
+			}
+			logger->fp = open_file(logger->name);
 		}
-		logger->fp = open_file(logger->name);
 	}
 	pthread_mutex_unlock(&lock);
 	printf("finished rotating\n");

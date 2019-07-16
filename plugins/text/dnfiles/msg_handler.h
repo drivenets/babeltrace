@@ -10,6 +10,7 @@
 
 struct logger {
 	char name[MAX_LOG_NAME];
+	bool is_dummy;
 	FILE *fp;
 	UT_hash_handle hh;
 };

@@ -5,8 +5,10 @@
 #include <babeltrace/babeltrace.h>
 #include <stdbool.h>
 
+int keepalive_timer;
 struct dnfiles_component {
 	bool error;
+	long int keepalive_interval;
 	struct bt_notification_iterator *input_iterator;
 };
 
